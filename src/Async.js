@@ -1,6 +1,7 @@
-import React, { Component } from 'react';
 import PropTypes from 'prop-types';
+import React, { Component } from 'react';
 import Select from './Select';
+
 import stripDiacritics from './utils/stripDiacritics';
 
 const propTypes = {
@@ -9,31 +10,33 @@ const propTypes = {
 	children: PropTypes.func.isRequired,       // Child function responsible for creating the inner Select component; (props: Object): PropTypes.element
 	ignoreAccents: PropTypes.bool,             // strip diacritics when filtering; defaults to true
 	ignoreCase: PropTypes.bool,                // perform case-insensitive filtering; defaults to true
+	loadOptions: PropTypes.func.isRequired,    // callback to load options asynchronously; (inputValue: string, callback: Function): ?Promise
 	loadingPlaceholder: PropTypes.oneOfType([  // replaces the placeholder while options are loading
 		PropTypes.string,
 		PropTypes.node
 	]),
-	loadOptions: PropTypes.func.isRequired,    // callback to load options asynchronously; (inputValue: string, callback: Function): ?Promise
 	multi: PropTypes.bool,                     // multi-value input
-	options: PropTypes.array.isRequired,             // array of options
-	placeholder: PropTypes.oneOfType([         // field placeholder, displayed when there's no value (shared with Select)
-		PropTypes.string,
-		PropTypes.node
-	]),
 	noResultsText: PropTypes.oneOfType([       // field noResultsText, displayed when no options come back from the server
 		PropTypes.string,
 		PropTypes.node
 	]),
 	onChange: PropTypes.func,                  // onChange handler: function (newValue) {}
+	onInputChange: PropTypes.func,             // optional for keeping track of what is being typed
+	options: PropTypes.array.isRequired,       // array of options
+	placeholder: PropTypes.oneOfType([         // field placeholder, displayed when there's no value (shared with Select)
+		PropTypes.string,
+		PropTypes.node
+	]),
 	searchPromptText: PropTypes.oneOfType([    // label to prompt for search input
 		PropTypes.string,
 		PropTypes.node
 	]),
-	onInputChange: PropTypes.func,             // optional for keeping track of what is being typed
 	value: PropTypes.any,                      // initial field value
 };
 
 const defaultCache = {};
+
+const defaultChildren = props => <Select {...props} />;
 
 const defaultProps = {
 	autoload: true,
@@ -53,11 +56,12 @@ export default class Async extends Component {
 		this._cache = props.cache === defaultCache ? {} : props.cache;
 
 		this.state = {
+			inputValue: '',
 			isLoading: false,
 			options: props.options,
 		};
 
-		this._onInputChange = this._onInputChange.bind(this);
+		this.onInputChange = this.onInputChange.bind(this);
 	}
 
 	componentDidMount () {
@@ -76,8 +80,8 @@ export default class Async extends Component {
 		}
 	}
 
-	clearOptions() {
-		this.setState({ options: [] });
+	componentWillUnmount () {
+		this._callback = null;
 	}
 
 	loadOptions (inputValue) {
@@ -86,9 +90,12 @@ export default class Async extends Component {
 
 		if (
 			cache &&
-			cache.hasOwnProperty(inputValue)
+			Object.prototype.hasOwnProperty.call(cache, inputValue)
 		) {
+			this._callback = null;
+
 			this.setState({
+				isLoading: false,
 				options: cache[inputValue]
 			});
 
@@ -96,14 +103,14 @@ export default class Async extends Component {
 		}
 
 		const callback = (error, data) => {
+			const options = data && data.options || [];
+
+			if (cache) {
+				cache[inputValue] = options;
+			}
+
 			if (callback === this._callback) {
 				this._callback = null;
-
-				const options = data && data.options || [];
-
-				if (cache) {
-					cache[inputValue] = options;
-				}
 
 				this.setState({
 					isLoading: false,
@@ -133,9 +140,19 @@ export default class Async extends Component {
 		}
 	}
 
-	_onInputChange (inputValue) {
+	onInputChange (inputValue) {
 		const { ignoreAccents, ignoreCase, onInputChange } = this.props;
-		let transformedInputValue = inputValue;
+		let newInputValue = inputValue;
+
+		if (onInputChange) {
+			const value = onInputChange(newInputValue);
+			// Note: != used deliberately here to catch undefined and null
+			if (value != null && typeof value !== 'object') {
+				newInputValue = '' + value;
+			}
+		}
+
+		let transformedInputValue = newInputValue;
 
 		if (ignoreAccents) {
 			transformedInputValue = stripDiacritics(transformedInputValue);
@@ -145,28 +162,16 @@ export default class Async extends Component {
 			transformedInputValue = transformedInputValue.toLowerCase();
 		}
 
-		if (onInputChange) {
-			onInputChange(transformedInputValue);
-		}
-
+		this.setState({ inputValue: newInputValue });
 		this.loadOptions(transformedInputValue);
 
-		// Return the original input value to avoid modifying the user's view of the input while typing.
-		return inputValue;
-	}
-
-	inputValue() {
-		if (this.select) {
-			return this.select.state.inputValue;
-		}
-		return '';
+		// Return new input value, but without applying toLowerCase() to avoid modifying the user's view case of the input while typing.
+		return newInputValue;
 	}
 
 	noResultsText() {
 		const { loadingPlaceholder, noResultsText, searchPromptText } = this.props;
-		const { isLoading } = this.state;
-
-		const inputValue = this.inputValue();
+		const { inputValue, isLoading } = this.state;
 
 		if (isLoading) {
 			return loadingPlaceholder;
@@ -190,28 +195,16 @@ export default class Async extends Component {
 			placeholder: isLoading ? loadingPlaceholder : placeholder,
 			options: (isLoading && loadingPlaceholder) ? [] : options,
 			ref: (ref) => (this.select = ref),
-			onChange: (newValues) => {
-				if (this.props.multi && this.props.value && (newValues.length > this.props.value.length)) {
-					this.clearOptions();
-				}
-				this.props.onChange(newValues);
-			}
 		};
 
 		return children({
 			...this.props,
 			...props,
 			isLoading,
-			onInputChange: this._onInputChange
+			onInputChange: this.onInputChange
 		});
 	}
 }
 
 Async.propTypes = propTypes;
 Async.defaultProps = defaultProps;
-
-function defaultChildren (props) {
-	return (
-		<Select {...props} />
-	);
-}

@@ -1,6 +1,7 @@
-import React from 'react';
-import PropTypes from 'prop-types';
 import classNames from 'classnames';
+import PropTypes from 'prop-types';
+import React from 'react';
+import blockEvent from './utils/blockEvent';
 
 class Option extends React.Component {
 
@@ -11,21 +12,9 @@ class Option extends React.Component {
 		this.handleMouseEnter = this.handleMouseEnter.bind(this);
 		this.handleMouseMove = this.handleMouseMove.bind(this);
 		this.handleTouchStart = this.handleTouchStart.bind(this);
+		this.handleTouchEnd = this.handleTouchEnd.bind(this);
+		this.handleTouchMove = this.handleTouchMove.bind(this);
 		this.onFocus = this.onFocus.bind(this);
-	}
-
-
-	blockEvent (event) {
-		event.preventDefault();
-		event.stopPropagation();
-		if ((event.target.tagName !== 'A') || !('href' in event.target)) {
-			return;
-		}
-		if (event.target.target) {
-			window.open(event.target.href, event.target.target);
-		} else {
-			window.location.href = event.target.href;
-		}
 	}
 
 	handleMouseDown (event) {
@@ -50,12 +39,12 @@ class Option extends React.Component {
 		this.handleMouseDown(event);
 	}
 
-	handleTouchMove (event) {
+	handleTouchMove () {
 		// Set a flag that the view is being dragged
 		this.dragging = true;
 	}
 
-	handleTouchStart (event) {
+	handleTouchStart () {
 		// Set a flag that the view is not being dragged
 		this.dragging = false;
 	}
@@ -65,21 +54,22 @@ class Option extends React.Component {
 			this.props.onFocus(this.props.option, event);
 		}
 	}
-	
+
 	render () {
-		var { option, instancePrefix, optionIndex } = this.props;
-		var className = classNames(this.props.className, option.className);
+		const { option, instancePrefix, optionIndex } = this.props;
+		const className = classNames(this.props.className, option.className);
 
 		return option.disabled ? (
 			<div className={className}
-				onMouseDown={this.blockEvent}
-				onClick={this.blockEvent}>
+				onMouseDown={blockEvent}
+				onClick={blockEvent}>
 				{this.props.children}
 			</div>
 		) : (
 			<div className={className}
 				style={option.style}
 				role="option"
+				aria-label={option.label}
 				onMouseDown={this.handleMouseDown}
 				onMouseEnter={this.handleMouseEnter}
 				onMouseMove={this.handleMouseMove}
@@ -92,7 +82,7 @@ class Option extends React.Component {
 			</div>
 		);
 	}
-};
+}
 
 Option.propTypes = {
 	children: PropTypes.node,
@@ -108,4 +98,4 @@ Option.propTypes = {
 	optionIndex: PropTypes.number,           // index of the option, used to generate unique ids for aria
 };
 
-module.exports = Option;
+export default Option;
