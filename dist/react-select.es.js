@@ -1725,6 +1725,12 @@ var Select$1 = function (_React$Component) {
 					valueArray: valueArray,
 					valueKey: this.props.valueKey
 				});
+			} else if (this.props.isLoading) {
+				return React.createElement(
+					'div',
+					{ className: 'Select-noresults' },
+					this.props.loadingPlaceholder
+				);
 			} else if (this.props.noResultsText) {
 				return React.createElement(
 					'div',
@@ -1937,6 +1943,8 @@ Select$1.propTypes = {
 	isLoading: PropTypes.bool, // whether the Select is loading externally or not (such as options being loaded)
 	joinValues: PropTypes.bool, // joins multiple values into a single form field with the delimiter (legacy mode)
 	labelKey: PropTypes.string, // path of the label value in option objects
+	loadingPlaceholder: PropTypes // replaces the placeholder while options are loading
+	.oneOfType([PropTypes.string, PropTypes.node]),
 	matchPos: PropTypes.string, // (any|start) match the start or entire string when filtering
 	matchProp: PropTypes.string, // (any|label|value) which option property to filter on
 	menuBuffer: PropTypes.number, // optional buffer (in px) between the bottom of the viewport and the bottom of the menu
@@ -2005,6 +2013,7 @@ Select$1.defaultProps = {
 	isLoading: false,
 	joinValues: false,
 	labelKey: 'label',
+	loadingPlaceholder: 'Loading...',
 	matchPos: 'any',
 	matchProp: 'any',
 	menuBuffer: 0,
